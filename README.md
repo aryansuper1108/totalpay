@@ -1,4 +1,4 @@
-# TotalPay WorkDesk
+# Totalpay Workdesk
 
 One application codebase for Cloudflare Workers and AWS. The React UI, Hono API routes, authentication, authorization rules, and PostgreSQL schema are shared. Only the runtime entry point and database connection configuration differ.
 

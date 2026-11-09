@@ -7,6 +7,6 @@ export default {
       return app.fetch(request, env, ctx);
     }
     if (env.ASSETS) return env.ASSETS.fetch(request);
-    return new Response('TotalPay WorkDesk assets are not configured.', {status:503});
+    return new Response('Totalpay Workdesk assets are not configured.', {status:503});
   }
 };

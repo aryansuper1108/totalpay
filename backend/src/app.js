@@ -68,7 +68,7 @@ const taskDto = async(db,t) => {
 };
 const taskDtos = async(db,rows) => Promise.all(rows.map(t=>taskDto(db,t)));
 
-app.get('/api/health',c=>c.json({ok:true,service:'TotalPay WorkDesk API',runtime:'portable'}));
+app.get('/api/health',c=>c.json({ok:true,service:'Totalpay Workdesk API',runtime:'portable'}));
 
 app.post('/api/auth/bootstrap',async c=>{
   const db=database(c.env);

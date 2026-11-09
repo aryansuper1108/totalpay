@@ -1,6 +1,6 @@
 {
-  "name": "TotalPay WorkDesk",
-  "short_name": "WorkDesk",
+  "name": "Totalpay Workdesk",
+  "short_name": "TotalPay",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f1f2f9",

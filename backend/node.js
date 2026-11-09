@@ -15,5 +15,5 @@ web.get('*', serveStatic({root:'./client/dist',path:'index.html'}));
 
 const port = Number(process.env.PORT || 4000);
 serve({fetch:(request)=>web.fetch(request,env),port}, info => {
-  console.log(`TotalPay WorkDesk listening on http://localhost:${info.port}`);
+  console.log(`Totalpay Workdesk listening on http://localhost:${info.port}`);
 });
