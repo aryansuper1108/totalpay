@@ -7,6 +7,13 @@ const app = new Hono();
 const encoder = new TextEncoder();
 const clients = new Map();
 
+// Keep unexpected API failures machine-readable. Without this handler Hono's
+// default plain-text 500 response causes the login UI's JSON parser to fail.
+app.onError((error, c) => {
+  console.error('Unhandled API error:', error);
+  return c.json({error:'The service could not complete the request. Please try again later.'},500);
+});
+
 function database(env) {
   const connectionString = env?.HYPERDRIVE?.connectionString || env?.DATABASE_URL || '';
   if (!connectionString) throw new Error('Database is not configured. Set Cloudflare Hyperdrive or DATABASE_URL.');
