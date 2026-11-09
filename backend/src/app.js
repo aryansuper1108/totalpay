@@ -5,26 +5,31 @@ import postgres from 'postgres';
 
 const app = new Hono();
 const encoder = new TextEncoder();
-const clients = new Map();
 
 // Keep unexpected API failures machine-readable. Without this handler Hono's
 // default plain-text 500 response causes the login UI's JSON parser to fail.
 app.onError((error, c) => {
-  console.error('Unhandled API error:', error);
+  console.error('Unhandled API error:', {
+    name:error?.name,
+    message:error?.message,
+    code:error?.code,
+    stack:error?.stack
+  });
   return c.json({error:'The service could not complete the request. Please try again later.'},500);
 });
 
 function database(env) {
   const connectionString = env?.HYPERDRIVE?.connectionString || env?.DATABASE_URL || '';
   if (!connectionString) throw new Error('Database is not configured. Set Cloudflare Hyperdrive or DATABASE_URL.');
-  if (!clients.has(connectionString)) {
-    clients.set(connectionString, postgres(connectionString, {
-      max: 5,
-      idle_timeout: 20,
-      connect_timeout: 10
-    }));
-  }
-  return clients.get(connectionString);
+  // Hyperdrive provides the cross-request connection pool. Keep the
+  // Postgres.js client request-scoped so a frozen Worker isolate cannot reuse
+  // a socket the runtime has already closed.
+  return postgres(connectionString, {
+    max: 5,
+    fetch_types: false,
+    idle_timeout: 20,
+    connect_timeout: 10
+  });
 }
 const q = (db, statement, params=[]) => db.unsafe(statement, params);
 const secret = env => env?.JWT_SECRET || 'local-only-change-this-secret-before-deploying-123456';
