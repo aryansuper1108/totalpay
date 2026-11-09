@@ -1,16 +1,25 @@
 
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "totalpay-workdesk",
+  "name": "totalpay",
   "main": "./worker.js",
   "compatibility_date": "2026-11-09",
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "observability": {
+    "enabled": true
+  },
   "assets": {
     "directory": "./client/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
-  }
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "73d32527bbcc433cbcc57d044e4022b3"
+    }
+  ]
 }
