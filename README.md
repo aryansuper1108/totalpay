@@ -190,3 +190,18 @@ The code and schema stay the same, but database data must be migrated separately
 - The official TotalPay logo is stored at `client/public/totalpay-logo.png`.
 - No Express, SQLite, `better-sqlite3`, or D1 backend remains in this portable package.
 - The Cloudflare Worker and AWS Node adapter import the same `backend/src/app.js`.
+
+## Product workflow update
+
+The current application adds editable user and team administration, an admin-only organization hierarchy and audit trail, Development Request approvals, and an in-app notification inbox. Notifications are stored in PostgreSQL and refreshed while the app is open; this works with the existing Cloudflare Worker and Neon setup without a paid push service. Native push notifications when the app is closed would require browser push subscriptions and VAPID secrets.
+
+### Apply the database update
+
+Before deploying this application version, run the additive migration against the same Neon database used by Cloudflare Hyperdrive:
+
+```powershell
+$env:DATABASE_URL = "YOUR_NEON_CONNECTION_STRING"
+npm run migrate
+```
+
+Alternatively, paste `database/migrations/002_product_workflows.sql` into the Neon SQL editor and run it once. Do not commit the connection string. The migration preserves existing users, teams, tasks, and requests while adding approval, notification, audit, and user update fields. After the migration succeeds, push the application changes so Cloudflare Workers Builds can deploy them.
