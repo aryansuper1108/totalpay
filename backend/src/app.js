@@ -35,17 +35,21 @@ async function makeToken(id, env) {
   return new SignJWT({sub:String(id)}).setProtectedHeader({alg:'HS256'}).setIssuedAt().setExpirationTime('12h').sign(encoder.encode(secret(env)));
 }
 async function auth(c,next) {
+  const token=(c.req.header('Authorization')||'').replace(/^Bearer\s+/i,'');
+  if(!token) return c.json({error:'Authentication required'},401);
+  let payload;
   try {
-    const token=(c.req.header('Authorization')||'').replace(/^Bearer\s+/i,'');
-    if(!token) throw new Error('Missing token');
-    const {payload}=await jwtVerify(token,encoder.encode(secret(c.env)));
-    const rows=await q(database(c.env),'SELECT * FROM users WHERE id=$1 AND active=TRUE',[Number(payload.sub)]);
-    if(!rows.length) throw new Error('Inactive user');
-    c.set('user',rows[0]);
-    await next();
+    ({payload}=await jwtVerify(token,encoder.encode(secret(c.env))));
   } catch {
     return c.json({error:'Authentication required'},401);
   }
+  if(!payload.sub) return c.json({error:'Authentication required'},401);
+  // Let database and route failures reach app.onError instead of disguising
+  // them as invalid credentials.
+  const rows=await q(database(c.env),'SELECT * FROM users WHERE id=$1 AND active=TRUE',[payload.sub]);
+  if(!rows.length) return c.json({error:'Your account is inactive or no longer exists'},401);
+  c.set('user',rows[0]);
+  await next();
 }
 const adminOnly = async(c,next) => c.get('user')?.role==='ADMIN' ? next() : c.json({error:'Administrator access required'},403);
 const taskDto = async(db,t) => {
