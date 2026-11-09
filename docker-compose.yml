@@ -1,0 +1,15 @@
+services:
+  workdesk:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET}
+      DB_FILE: /data/workdesk.sqlite
+    volumes:
+      - workdesk-data:/data
+    restart: unless-stopped
+volumes:
+  workdesk-data:
