@@ -1,71 +1,192 @@
-# TotalPay WorkDesk — React + Express + SQLite + PWA
+# TotalPay WorkDesk
 
-## Included
-- React + Vite frontend
-- Express API
-- SQLite persistence
-- JWT login and bcrypt password hashing
-- PWA manifest, icons and service worker
-- Installable from supported mobile browsers (HTTPS required in production)
-- Role-aware organization planner:
-  - ADMIN: organization-wide access; browse teams and member planners; multiple administrators are supported
-  - MANAGER: only their assigned team and its member planners; manager can open a member's individual planner
-  - EMPLOYEE: own planner and tasks assigned/shared with them; other employees' personal planners are not visible
-- Admin-only user creation and team creation
-- Department-scoped development requests (Technical + Admin)
-- Mobile responsive UI with same sidebar/navigation model and mobile bottom navigation
+One application codebase for Cloudflare Workers and AWS. The React UI, Hono API routes, authentication, authorization rules, and PostgreSQL schema are shared. Only the runtime entry point and database connection configuration differ.
 
-## Demo accounts
-All demo passwords: `Demo@123`
+## Stack
 
-- CEO / Super Admin: `admin@totalpay.local`
-- Manager Taj: `taj@totalpay.local`
-- Employee Aryan Rana: `aryan@totalpay.local`
+- React + Vite + PWA
+- Hono API (same routes on Cloudflare Workers and Node.js)
+- PostgreSQL (same schema and SQL on both platforms)
+- Postgres.js with `prepare: false`
+- JWT authentication with `jose`
+- Password hashing with `bcryptjs`
+- Cloudflare Workers + static asset binding for initial hosting
+- Docker + Node.js for AWS deployment
 
-Seed data creates Taj Team (Technical), Taj as its manager, Aryan Rana and Neha Patel as members, plus sample planner tasks. Admins can create additional teams and assign members during user creation.
+## Repository layout
 
-## Local development
-Requires Node.js 20+.
+```text
+totalpay_workdesk/
+├── backend/
+│   ├── src/app.js          # Shared API and authorization logic
+│   └── node.js             # Node.js/AWS entry point
+├── client/                 # React + Vite + PWA
+├── database/
+│   ├── migrations/
+│   └── schema.sql
+├── scripts/migrate.js
+├── worker.js               # Cloudflare Workers entry point
+├── wrangler.jsonc
+├── Dockerfile
+└── docker-compose.yml
+```
+
+## 1. Local development
+
+Requirements: Node.js 20+ and PostgreSQL 14+.
 
 ```bash
 npm install
-npm install --prefix client
-npm install --prefix server
+npm run install:client
+```
+
+Create a PostgreSQL database named `workdesk`, then set environment variables.
+
+Linux/macOS:
+```bash
+export DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/workdesk"
+export JWT_SECRET="use-a-random-secret-at-least-32-characters-long"
+npm run migrate
 npm run dev
 ```
 
-Frontend: http://localhost:5173  
-API: http://localhost:4000
+PowerShell:
+```powershell
+$env:DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/workdesk"
+$env:JWT_SECRET="use-a-random-secret-at-least-32-characters-long"
+npm run migrate
+npm run dev
+```
 
-The root `npm install` installs the concurrently helper. Client and server dependencies are installed separately as shown.
+Open http://localhost:5173. Vite proxies `/api` to the Node API at port 4000.
 
-## Production with Docker
+## 2. First-time workspace setup
 
-1. Set a long random `JWT_SECRET` in `.env`.
-2. Run:
+There are no hard-coded demo accounts or default passwords.
+
+1. Open the application.
+2. Select **First time? Set up workspace**.
+3. Create the first Super Admin with a unique official email and a password of at least 12 characters.
+4. The bootstrap endpoint closes automatically once the first user exists.
+5. The Super Admin can create managers, employees and teams from Settings.
+
+The bootstrap endpoint is `/api/auth/bootstrap`. It can only create the first account when the users table is empty.
+
+## 3. Cloudflare Workers deployment
+
+### Database
+
+Use a PostgreSQL provider that is reachable through Cloudflare Hyperdrive (for example, a PostgreSQL service with a compatible connection string). The application uses PostgreSQL on both Cloudflare and AWS; it does not use D1 or SQLite.
+
+Create the schema once from your development machine:
+
+```bash
+DATABASE_URL="YOUR_POSTGRES_CONNECTION_STRING" npm run migrate
+```
+
+PowerShell:
+```powershell
+$env:DATABASE_URL="YOUR_POSTGRES_CONNECTION_STRING"
+npm run migrate
+```
+
+### Create Hyperdrive
+
+Install dependencies and authenticate:
+
+```bash
+npm install
+npx wrangler login
+```
+
+Create a Hyperdrive configuration using the same PostgreSQL connection string:
+
+```bash
+npx wrangler hyperdrive create workdesk-db --connection-string="YOUR_POSTGRES_CONNECTION_STRING"
+```
+
+Cloudflare prints a Hyperdrive ID. Edit `wrangler.jsonc` and add the returned ID:
+
+```jsonc
+"hyperdrive": [
+  {
+    "binding": "HYPERDRIVE",
+    "id": "PASTE_THE_REAL_HYPERDRIVE_ID_HERE"
+  }
+]
+```
+
+Add this block at the top level beside `assets` and `compatibility_flags`. Do not leave a placeholder ID in the deployed file.
+
+Set the JWT signing secret:
+
+```bash
+npx wrangler secret put JWT_SECRET
+```
+
+Paste a long random secret when prompted. Do not commit real secrets or database passwords to GitHub.
+
+### Workers Builds settings
+
+In Cloudflare → Workers & Pages → your Worker → Settings / Builds:
+
+| Field | Value |
+|---|---|
+| Root directory | `/` |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Preview command | Leave empty (or use `npx wrangler dev` locally) |
+
+The root build script installs the client dependencies and builds React into `client/dist`. `wrangler.jsonc` maps that directory to the `ASSETS` binding. `worker.js` routes `/api/*` to the shared Hono API and serves the static React app through Cloudflare's asset binding.
+
+After adding the Hyperdrive binding and JWT secret, push the changes to GitHub. Workers Builds will install the root dependencies, run the build command, and deploy the Worker.
+
+### Cloudflare free-tier note
+
+The Worker/static hosting may fit within Cloudflare's free plan limits, but PostgreSQL is a separate service. Hyperdrive connects to PostgreSQL; it does not provide a database. A PostgreSQL provider may have its own free tier, usage limits, sleep/compute constraints or charges. Check the provider's current terms before production use.
+
+## 4. AWS deployment (same application code)
+
+The Docker image runs `backend/node.js`, which mounts the exact same Hono API from `backend/src/app.js` and serves the same React build. No separate AWS business logic is maintained.
+
+For a quick Docker deployment:
+
+1. Copy `.env.example` to `.env`.
+2. Set strong `POSTGRES_PASSWORD` and `JWT_SECRET` values.
+3. Start the application and PostgreSQL:
 
 ```bash
 docker compose up -d --build
 ```
 
-3. Open `http://YOUR_SERVER:4000` (put behind HTTPS Nginx before real use).
-4. Persistent SQLite database is stored in the Docker volume `workdesk-data`.
+4. Run the migration inside the app container:
 
-## Install on phone
-Deploy behind HTTPS using a valid certificate, then open the WorkDesk URL in Chrome on Android or Safari on iPhone:
-- Android/Chrome: browser menu → Install app / Add to Home screen.
-- iPhone/Safari: Share → Add to Home Screen.
+```bash
+docker compose exec workdesk npm run migrate
+```
 
-No Play Store or App Store listing is required. PWA installation requires HTTPS (localhost is exempt for development).
+5. Open port 4000 behind HTTPS/Nginx or an AWS load balancer.
 
-## Important production hardening
-This is a functional starter application, not a security-audited production release. Before real company use:
-- Change all demo passwords and set a strong JWT_SECRET.
-- Add password reset, MFA/SSO, account lockout and session revocation.
-- Configure HTTPS, restrictive CORS, rate limiting, secure headers and request validation.
-- Add team membership administration, audit events, notifications, file attachments and backup/restore procedures.
-- Review whether managers may edit every team task or only tasks assigned to their team.
-- Add database migrations and automated tests.
-- Ensure backups are encrypted and access is restricted.
+For AWS production, use RDS PostgreSQL rather than the bundled PostgreSQL container. Set `DATABASE_URL` to the RDS connection string and deploy the same Docker image to ECS, EC2 or another Node.js container service.
 
-The API enforces the key visibility boundaries server-side; frontend hiding is not used as the security boundary.
+## 5. Moving PostgreSQL data to AWS
+
+The code and schema stay the same, but database data must be migrated separately. Use PostgreSQL `pg_dump` and `pg_restore` (or the provider's managed migration service), verify row counts and application access, then switch `DATABASE_URL` to RDS.
+
+## 6. Security and production checklist
+
+- Use HTTPS for all production traffic.
+- Store `JWT_SECRET` as a Cloudflare secret or AWS secret/environment variable; never commit it.
+- Use a unique strong password for the first administrator.
+- Use a restricted database user for the application.
+- Restrict database network access to Cloudflare Hyperdrive / AWS application networking.
+- Configure automated PostgreSQL backups and test restoration.
+- Add MFA/SSO, password reset, audit logs, account lockout and rate limiting before broad company rollout.
+- Review employee/manager access rules with stakeholders before production.
+- Keep staging and production databases separate.
+
+## Notes
+
+- The official TotalPay logo is stored at `client/public/totalpay-logo.png`.
+- No Express, SQLite, `better-sqlite3`, or D1 backend remains in this portable package.
+- The Cloudflare Worker and AWS Node adapter import the same `backend/src/app.js`.

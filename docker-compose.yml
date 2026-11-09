@@ -1,15 +1,31 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: workdesk
+      POSTGRES_USER: workdesk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - workdesk-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workdesk -d workdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   workdesk:
     build: .
     ports:
       - "4000:4000"
     environment:
-      NODE_ENV: production
       PORT: 4000
-      JWT_SECRET: ${JWT_SECRET}
-      DB_FILE: /data/workdesk.sqlite
-    volumes:
-      - workdesk-data:/data
+      DATABASE_URL: postgres://workdesk:${POSTGRES_PASSWORD}@db:5432/workdesk
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
 volumes:
-  workdesk-data:
+  workdesk-postgres:

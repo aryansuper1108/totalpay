@@ -1,14 +1,29 @@
 {
   "name": "totalpay-workdesk",
+  "version": "2.0.0",
   "private": true,
-  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "install:all": "npm install --prefix client && npm install --prefix server",
-    "build": "npm run install:all && npm run build --prefix client",
-    "start": "npm run start --prefix server"
+    "install:client": "npm install --prefix client",
+    "build": "npm run install:client && npm run build --prefix client",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:client\"",
+    "dev:api": "node backend/node.js",
+    "dev:client": "npm run dev --prefix client",
+    "start": "node backend/node.js",
+    "migrate": "node scripts/migrate.js",
+    "deploy:worker": "wrangler deploy",
+    "preview:worker": "wrangler dev"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "bcryptjs": "^2.4.3",
+    "hono": "^4.6.16",
+    "jose": "^5.9.6",
+    "postgres": "^3.4.5",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "wrangler": "^3.101.0"
   }
 }

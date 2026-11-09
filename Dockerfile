@@ -1,22 +1,21 @@
-FROM node:20-alpine AS client-build
-WORKDIR /app/client
-COPY client/package*.json ./
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
 RUN npm install
-COPY client/ ./
+COPY client/package*.json ./client/
+RUN npm install --prefix client
+COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS app
+FROM node:20-alpine AS runtime
 WORKDIR /app
-COPY server/package*.json ./server/
-WORKDIR /app/server
-RUN apk add --no-cache python3 make g++ && npm install --omit=dev
-WORKDIR /app
-COPY server/ ./server/
-COPY --from=client-build /app/client/dist ./client/dist
 ENV NODE_ENV=production
 ENV PORT=4000
-ENV DB_FILE=/data/workdesk.sqlite
-RUN mkdir -p /data
-VOLUME ["/data"]
+COPY package*.json ./
+RUN npm install --omit=dev
+COPY backend ./backend
+COPY scripts ./scripts
+COPY database ./database
+COPY --from=build /app/client/dist ./client/dist
 EXPOSE 4000
-CMD ["node","server/index.js"]
+CMD ["node","backend/node.js"]
