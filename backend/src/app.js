@@ -19,7 +19,6 @@ function database(env) {
   if (!connectionString) throw new Error('Database is not configured. Set Cloudflare Hyperdrive or DATABASE_URL.');
   if (!clients.has(connectionString)) {
     clients.set(connectionString, postgres(connectionString, {
-      prepare: false,
       max: 5,
       idle_timeout: 20,
       connect_timeout: 10
