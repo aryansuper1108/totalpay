@@ -31,7 +31,9 @@ function database(env) {
     connect_timeout: 10
   });
 }
-const q = (db, statement, params=[]) => db.unsafe(statement, params);
+// Postgres.js unsafe() defaults prepare to false even when the client uses
+// prepared statements. Hyperdrive transaction pooling needs prepared queries.
+const q = (db, statement, params=[]) => db.unsafe(statement, params, {prepare:true});
 const secret = env => env?.JWT_SECRET || 'local-only-change-this-secret-before-deploying-123456';
 const publicUser = u => ({id:u.id,name:u.name,email:u.email,role:u.role,department:u.department,teamId:u.team_id});
 
